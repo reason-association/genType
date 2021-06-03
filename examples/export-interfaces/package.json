@@ -1,0 +1,19 @@
+{
+  "name": "export-interfaces",
+  "version": "0.1.0",
+  "scripts": {
+    "clean": "rescript clean",
+    "build": "rescript build",
+    "watch": "rescript build -w",
+    "tsc": "tsc -p tsconfig.json"
+  },
+  "keywords": [
+    "ReScript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "rescript": "^9.1.2",
+    "typescript": "3.9.2"
+  }
+}

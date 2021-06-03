@@ -21,6 +21,7 @@ const pjson = require("../package.json");
 
 const exampleDirNames = [
   "typescript-react-example",
+  "export-interfaces"
 ];
 const exampleDirPaths = exampleDirNames.map((exampleName) =>
   path.join(__dirname, "..", "examples", exampleName)

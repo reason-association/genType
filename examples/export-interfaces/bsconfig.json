@@ -1,0 +1,20 @@
+{
+  "gentypeconfig": {
+    "language": "typescript",
+    "debug": {
+      "all": false
+    },
+    "exportInterfaces": true,
+    "path": "../../_build/default/src/GenType.exe"
+  },
+  "name": "export-interfaces",
+  "version": "0.1.0",
+  "sources": {
+    "dir": "src",
+    "subdirs": true
+  },
+  "package-specs": {
+    "module": "es6",
+    "in-source": true
+  }
+}

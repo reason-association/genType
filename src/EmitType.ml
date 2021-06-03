@@ -35,7 +35,7 @@ let generatedModuleExtension ~config = generatedFilesExtension ~config
 let shimExtension = ".shim.ts"
 
 let interfaceName ~config name =
-  match config.exportInterfaces with true -> "I" ^ name | false -> name
+  if config.exportInterfaces then "I" ^ name else name
 
 let typeAny = ident ~builtin:true "any"
 
@@ -378,12 +378,11 @@ let emitImportTypeAs ~emitters ~config ~typeName ~asTypeName
   in
   let typeName, asTypeName =
     match asTypeName with
-    | Some asName -> (
-      match asName |> typeNameIsInterface with
-      | true ->
+    | Some asName ->
+      if asName |> typeNameIsInterface then
         ( typeName |> interfaceName ~config,
           Some (asName |> interfaceName ~config) )
-      | false -> (typeName, asTypeName))
+      else (typeName, asTypeName)
     | None -> (typeName, asTypeName)
   in
   let importPathString = importPath |> ImportPath.emit ~config in
