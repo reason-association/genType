@@ -20,10 +20,7 @@ const path = require("path");
 const pjson = require("../package.json");
 
 const exampleDirNames = [
-  "flow-react-example",
   "typescript-react-example",
-  "untyped-react-example",
-  "commonjs-react-example",
 ];
 const exampleDirPaths = exampleDirNames.map((exampleName) =>
   path.join(__dirname, "..", "examples", exampleName)

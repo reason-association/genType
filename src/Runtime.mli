@@ -31,12 +31,7 @@ val emitVariantGetPayload :
 val emitVariantLabel : polymorphic:bool -> string -> string
 
 val emitVariantWithPayload :
-  config:Config_.config ->
-  inlineRecord:bool ->
-  label:string ->
-  polymorphic:bool ->
-  string list ->
-  string
+  inlineRecord:bool -> label:string -> polymorphic:bool -> string list -> string
 
 val isMutableObjectField : string -> bool
 

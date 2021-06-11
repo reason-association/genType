@@ -103,7 +103,7 @@ let processCmtFile ~signFile ~config cmt =
     let isInterface = Filename.check_suffix cmtFile ".cmti" in
     let resolver =
       ModuleResolver.createLazyResolver ~config
-        ~extensions:[".re"; ".res"; EmitType.shimExtension ~config]
+        ~extensions:[".re"; ".res"; EmitType.shimExtension]
         ~excludeFile:(fun fname ->
           fname = "React.re" || fname = "ReasonReact.re")
     in

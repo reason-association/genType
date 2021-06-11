@@ -170,8 +170,7 @@ let traslateDeclarationKind ~config ~loc ~outputFileRelative ~resolver
       exportFromTypeDeclaration =
         typeName
         |> createExportTypeFromTypeDeclaration ~annotation ~loc ~nameAs
-             ~opaque:(Some true) ~type_:(mixedOrUnknown ~config) ~typeEnv
-             ~typeVars;
+             ~opaque:(Some true) ~type_:unknown ~typeEnv ~typeVars;
     }
     |> returnTypeDeclaration
   | GeneralDeclarationFromTypes (Some typeExpr), None ->

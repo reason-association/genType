@@ -14,6 +14,4 @@ val fromStringUnsafe : string -> t
 
 val propTypes : t
 
-val react : t
-
 val toCmt : config:config -> outputFileRelative:string -> t -> string

@@ -126,7 +126,7 @@ let typeGetConverterNormalized ~config ~inline ~lookupId ~typeNameIsInterface
       let isHook =
         match argTypes with
         | [{aType = Object (_, fields)}] ->
-          retType |> EmitType.isTypeFunctionComponent ~config ~fields
+          retType |> EmitType.isTypeFunctionComponent ~fields
         | _ -> false
       in
       ( FunctionC
@@ -504,11 +504,7 @@ let rec apply ~config ~converter ~indent ~nameGen ~toJS ~variantTables value =
     in
     let bodyArgs = convertedArgs |> List.map snd |> List.concat in
     EmitText.funDef ~bodyArgs ~functionName:componentName ~funParams ~indent
-      ~mkBody
-      ~typeVars:
-        (match config.language with
-        | Flow | TypeScript -> typeVars
-        | Untyped -> [])
+      ~mkBody ~typeVars
   | IdentC -> value
   | NullableC c ->
     EmitText.parens
@@ -583,9 +579,7 @@ let rec apply ~config ~converter ~indent ~nameGen ~toJS ~variantTables value =
                       ~indent ~nameGen ~toJS ~variantTables))
         |> String.concat ", "
       in
-      match fieldsC = [] && config.language = Flow with
-      | true -> "Object.freeze({})"
-      | false -> "{" ^ fieldValues ^ "}"
+      "{" ^ fieldValues ^ "}"
     else
       let fieldValues =
         fieldsC
@@ -666,8 +660,8 @@ let rec apply ~config ~converter ~indent ~nameGen ~toJS ~variantTables value =
         else
           value
           |> convertVariantPayloadToRE ~argConverters ~indent
-          |> Runtime.emitVariantWithPayload ~config ~inlineRecord
-               ~label:case.label ~polymorphic:variantC.polymorphic
+          |> Runtime.emitVariantWithPayload ~inlineRecord ~label:case.label
+               ~polymorphic:variantC.polymorphic
       in
       match variantC.noPayloads = [] with
       | true -> casesWithPayload ~indent
@@ -690,8 +684,8 @@ let rec apply ~config ~converter ~indent ~nameGen ~toJS ~variantTables value =
           value
           |> Runtime.emitJSVariantGetPayload ~polymorphic:variantC.polymorphic
           |> convertVariantPayloadToRE ~argConverters ~indent
-          |> Runtime.emitVariantWithPayload ~config ~inlineRecord
-               ~label:case.label ~polymorphic:variantC.polymorphic
+          |> Runtime.emitVariantWithPayload ~inlineRecord ~label:case.label
+               ~polymorphic:variantC.polymorphic
       in
       let switchCases ~indent =
         variantC.withPayloads

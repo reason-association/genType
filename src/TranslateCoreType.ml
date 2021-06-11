@@ -240,7 +240,7 @@ and translateCoreType_ ~config ~typeVarsGen
         |> List.concat
       in
       {dependencies; type_}
-    | _ -> {dependencies = []; type_ = mixedOrUnknown ~config})
+    | _ -> {dependencies = []; type_ = unknown})
   | Ttyp_package {pack_path; pack_fields} -> (
     match typeEnv |> TypeEnv.lookupModuleTypeSignature ~path:pack_path with
     | Some (signature, typeEnv) ->
@@ -269,9 +269,8 @@ and translateCoreType_ ~config ~typeVarsGen
         dependencies = dependenciesFromTypeEquations @ dependenciesFromRecordType;
         type_;
       }
-    | None -> {dependencies = []; type_ = mixedOrUnknown ~config})
-  | Ttyp_any | Ttyp_class _ ->
-    {dependencies = []; type_ = mixedOrUnknown ~config}
+    | None -> {dependencies = []; type_ = unknown})
+  | Ttyp_any | Ttyp_class _ -> {dependencies = []; type_ = unknown}
 
 and translateCoreTypes_ ~config ~typeVarsGen ~typeEnv typeExprs :
     translation list =

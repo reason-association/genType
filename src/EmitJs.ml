@@ -1,8 +1,8 @@
 open GenTypeCommon
 
 type env = {
-  requiresEarly : (ImportPath.t * bool) ModuleNameMap.t;
-  requires : (ImportPath.t * bool) ModuleNameMap.t;
+  requiresEarly : ImportPath.t ModuleNameMap.t;
+  requires : ImportPath.t ModuleNameMap.t;
       (**  For each .cmt we import types from, keep the map of exported types *)
   cmtToExportTypeMap : CodeItem.exportTypeMap StringMap.t;
       (**  Map of types imported from other files *)
@@ -10,13 +10,11 @@ type env = {
   importedValueOrComponent : bool;
 }
 
-let requireModule ~import ~env ~importPath ?(strict = false) moduleName =
+let requireModule ~import ~env ~importPath moduleName =
   let requires =
     match import with true -> env.requiresEarly | false -> env.requires
   in
-  let requiresNew =
-    requires |> ModuleNameMap.add moduleName (importPath, strict)
-  in
+  let requiresNew = requires |> ModuleNameMap.add moduleName importPath in
   match import with
   | true -> {env with requiresEarly = requiresNew}
   | false -> {env with requires = requiresNew}
@@ -126,9 +124,8 @@ let emitExportFromTypeDeclarations ~config ~emitters ~env ~typeGetNormalized
        (env, emitters)
 
 let rec emitCodeItem ~config ~emitters ~moduleItemsEmitter ~env ~fileName
-    ~outputFileRelative ~resolver ~typeGetConverter ~typeGetInlined
-    ~typeGetNormalized ~typeNameIsInterface ~variantTables codeItem =
-  let language = config.language in
+    ~outputFileRelative ~resolver ~typeGetConverter ~typeGetNormalized
+    ~typeNameIsInterface ~variantTables codeItem =
   if !Debug.codeItems then
     Log_.item "Code Item: %s\n"
       (codeItem |> codeItemToString ~config ~typeNameIsInterface);
@@ -146,36 +143,21 @@ let rec emitCodeItem ~config ~emitters ~moduleItemsEmitter ~env ~fileName
         | x :: y -> (x, "" :: y |> String.concat ".")
         | _ -> (asPath, ""))
     in
-    let importFileVariable = "$$" ^ importFile in
     let emitters, importedAsName, env =
-      match (language, config.module_) with
-      | _, ES6 | TypeScript, _ ->
-        (* emit an import {... as ...} immediately *)
-        let valueNameNotChecked = valueName ^ "NotChecked" in
-        let emitters =
-          importPath
-          |> EmitType.emitImportValueAsEarly ~config ~emitters
-               ~name:firstNameInPath ~nameAs:(Some valueNameNotChecked)
-        in
-        (emitters, valueNameNotChecked, env)
-      | (Flow | Untyped), _ ->
-        (* add an early require(...) *)
-        let importedAsName =
-          match firstNameInPath = "default" with
-          | true -> importFileVariable
-          | false -> importFileVariable ^ "." ^ firstNameInPath
-        in
-        let env =
-          importFileVariable |> ModuleName.fromStringUnsafe
-          |> requireModule ~import:true ~env ~importPath ~strict:true
-        in
-        (emitters, importedAsName, env)
+      (* emit an import {... as ...} immediately *)
+      let valueNameNotChecked = valueName ^ "NotChecked" in
+      let emitters =
+        importPath
+        |> EmitType.emitImportValueAsEarly ~config ~emitters
+             ~name:firstNameInPath ~nameAs:(Some valueNameNotChecked)
+      in
+      (emitters, valueNameNotChecked, env)
     in
     let type_ =
       match type_ with
       | Function
           ({argTypes = [{aType = Object (_, fields)}]; retType} as function_)
-        when retType |> EmitType.isTypeFunctionComponent ~config ~fields ->
+        when retType |> EmitType.isTypeFunctionComponent ~fields ->
         let componentName =
           match importFile with "." | ".." -> None | _ -> Some importFile
         in
@@ -210,12 +192,12 @@ let rec emitCodeItem ~config ~emitters ~moduleItemsEmitter ~env ~fileName
            ~comment:
              ("Export '" ^ valueNameNotDefault
             ^ "' early to allow circular import from the '.bs.js' file.")
-           ~config ~emitters ~name:valueNameNotDefault
-           ~type_:(mixedOrUnknown ~config) ~typeNameIsInterface
+           ~config ~emitters ~name:valueNameNotDefault ~type_:unknown
+           ~typeNameIsInterface
     in
     let emitters =
       match valueName = "default" with
-      | true -> EmitType.emitExportDefault ~emitters ~config valueNameNotDefault
+      | true -> EmitType.emitExportDefault ~emitters valueNameNotDefault
       | false -> emitters
     in
     ({env with importedValueOrComponent = true}, emitters)
@@ -243,7 +225,6 @@ let rec emitCodeItem ~config ~emitters ~moduleItemsEmitter ~env ~fileName
       type t = {
         propsType : type_;
         resolvedTypeName : ResolvedName.t;
-        retType : type_;
         typeVars : string list;
       }
     end in
@@ -255,17 +236,16 @@ let rec emitCodeItem ~config ~emitters ~moduleItemsEmitter ~env ~fileName
              retType;
              typeVars;
            } as function_)
-        when retType |> EmitType.isTypeFunctionComponent ~config ~fields ->
+        when retType |> EmitType.isTypeFunctionComponent ~fields ->
         let propsType =
           let fields =
             fields
             |> List.map (fun (field : field) ->
                    match
                      field.nameJS = "children"
-                     && field.type_ |> EmitType.isTypeReactElement ~config
+                     && field.type_ |> EmitType.isTypeReactElement
                    with
-                   | true ->
-                     {field with type_ = EmitType.typeReactChild ~config}
+                   | true -> {field with type_ = EmitType.typeReactChild}
                    | false -> field)
           in
           Object (closedFlags, fields)
@@ -300,7 +280,7 @@ let rec emitCodeItem ~config ~emitters ~moduleItemsEmitter ~env ~fileName
           else ResolvedName.fromString name |> ResolvedName.dot "Props"
         in
         ( Function {function_ with componentName = Some hookName},
-          Some {HookType.propsType; resolvedTypeName; retType; typeVars} )
+          Some {HookType.propsType; resolvedTypeName; typeVars} )
       | _ -> (type_, None)
     in
 
@@ -321,9 +301,8 @@ let rec emitCodeItem ~config ~emitters ~moduleItemsEmitter ~env ~fileName
            }
             : CodeItem.exportType)
         in
-        if config.language = TypeScript then
-          (* For doc gen (https://github.com/cristianoc/genType/issues/342) *)
-          config.emitImportReact <- true;
+        (* For doc gen (https://github.com/cristianoc/genType/issues/342) *)
+        config.emitImportReact <- true;
         emitExportType ~emitters ~config ~typeGetNormalized ~typeNameIsInterface
           exportType
       | _ -> emitters
@@ -338,48 +317,33 @@ let rec emitCodeItem ~config ~emitters ~moduleItemsEmitter ~env ~fileName
            ~typeNameIsInterface
     in
     let emitters =
-      match hookType with
-      | Some {propsType = Object (_, fields)}
-        when config.language = Untyped && config.propTypes ->
-        fields
-        |> List.map (fun (field : field) ->
-               let type_ = field.type_ |> typeGetInlined in
-               {field with type_})
-        |> EmitType.emitPropTypes ~config ~name ~emitters ~indent
-      | _ -> emitters
-    in
-    let emitters =
       match originalName = default with
-      | true -> EmitType.emitExportDefault ~emitters ~config Runtime.default
+      | true -> EmitType.emitExportDefault ~emitters Runtime.default
       | false -> emitters
     in
     (envWithRequires, emitters)
 
 and emitCodeItems ~config ~outputFileRelative ~emitters ~moduleItemsEmitter ~env
-    ~fileName ~resolver ~typeNameIsInterface ~typeGetConverter ~typeGetInlined
+    ~fileName ~resolver ~typeNameIsInterface ~typeGetConverter
     ~typeGetNormalized ~variantTables codeItems =
   codeItems
   |> List.fold_left
        (fun (env, emitters) ->
          emitCodeItem ~config ~emitters ~moduleItemsEmitter ~env ~fileName
-           ~outputFileRelative ~resolver ~typeGetConverter ~typeGetInlined
-           ~typeGetNormalized ~typeNameIsInterface ~variantTables)
+           ~outputFileRelative ~resolver ~typeGetConverter ~typeGetNormalized
+           ~typeNameIsInterface ~variantTables)
        (env, emitters)
 
 let emitRequires ~importedValueOrComponent ~early ~config ~requires emitters =
   ModuleNameMap.fold
-    (fun moduleName (importPath, strict) emitters ->
+    (fun moduleName importPath emitters ->
       importPath
       |> EmitType.emitRequire ~importedValueOrComponent ~early ~emitters ~config
-           ~moduleName ~strict)
+           ~moduleName)
     requires emitters
 
-let emitVariantTables ~config ~emitters variantTables =
-  let typeAnnotation =
-    match config.language = TypeScript with
-    | true -> ": { [key: string]: any }"
-    | false -> ""
-  in
+let emitVariantTables ~emitters variantTables =
+  let typeAnnotation = ": { [key: string]: any }" in
   let emitTable ~table ~toJS (variantC : Converter.variantC) =
     "const " ^ table ^ typeAnnotation ^ " = {"
     ^ (variantC.noPayloads
@@ -662,14 +626,13 @@ let emitTranslationAsString ~config ~fileName ~inputCmtTranslateTypeDeclarations
     translation.codeItems
     |> emitCodeItems ~config ~emitters ~moduleItemsEmitter ~env ~fileName
          ~outputFileRelative ~resolver
-         ~typeGetInlined:(typeGetNormalized_ ~env ~inline:true)
          ~typeGetNormalized:(typeGetNormalized_ ~env)
          ~typeGetConverter:(typeGetConverter_ ~env)
          ~typeNameIsInterface:(typeNameIsInterface ~env) ~variantTables
   in
   let emitters =
     match config.emitImportReact with
-    | true -> EmitType.emitImportReact ~emitters ~config
+    | true -> EmitType.emitImportReact ~emitters
     | false -> emitters
   in
   let env =
@@ -687,7 +650,7 @@ let emitTranslationAsString ~config ~fileName ~inputCmtTranslateTypeDeclarations
       |> requireModule ~import:true ~env ~importPath:ImportPath.propTypes
     | false -> env
   in
-  let emitters = variantTables |> emitVariantTables ~config ~emitters in
+  let emitters = variantTables |> emitVariantTables ~emitters in
   let emitters =
     moduleItemsEmitter
     |> ExportModule.emitAllModuleItems ~config ~emitters ~fileName
